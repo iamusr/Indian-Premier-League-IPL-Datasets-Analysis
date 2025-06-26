@@ -1,0 +1,295 @@
+--1.Create a table named ‘ipl_matches’ with appropriate data types for columns 
+CREATE TABLE ipl_matches
+(
+	id int,
+	city varchar(15),
+	"date" DATE,
+	player_of_match varchar(20),
+	venue varchar(50),
+	neutral_venue int,
+	team1 varchar(50),
+	team2 varchar(50),
+	toss_winner varchar(50),
+	toss_decision varchar(50),
+	winner varchar(50),
+	result varchar(25),
+	result_margin int,
+	eliminator char(2),
+	method char(2),
+	umpire1 varchar(20),
+	umpire2 varchar(20)
+);
+
+--2.Create a table named ‘ipl_ball’ with appropriate data types for columns
+CREATE TABLE ipl_ball
+(
+	id int,
+	inning int,
+	over int,
+	ball int,
+	batsman varchar(25),
+	non_striker varchar(25),
+	bowler varchar(25),
+	batsman_runs int,
+	extra_runs int,
+	total_runs int,
+	is_wicket int,
+	dismissal_kind varchar(30),
+	player_dismissed varchar(30),
+	fielder varchar(30),
+	extras_type varchar(25),
+	batting_team varchar(50),
+	bowling_team varchar(50)
+);
+
+-- 3.Import data from csv file ’IPL_matches.csv’ attached in resources to the table ‘matches’ which was created in Q1
+
+COPY ipl_matches
+FROM 'E:\internshala_sql_project\IPLMatches_IPLBall\IPL_matches.csv'
+DELIMITER ',' CSV HEADER; 
+-- after getting three errors below I can able to run COPY query
+
+/*got an error: value too long for type charcter(2)
+CONTEXT: copy ipl_matches, line 42, column method: "D/L"*/
+
+ALTER TABLE ipl_matches
+ALTER COLUMN method TYPE char(3); --successfully
+
+/*got an error: value too long for type character varying(50)
+CONTEXT: COPY ipl_matches, line 255, column venue: "Dr. Y. S. Rajasekhara Reddy ACA-VDCA Cricket Stadium"*/
+
+ALTER TABLE ipl_matches
+ALTER COLUMN venue TYPE varchar(75); --success
+
+/*got an error: value too long for type character varying(20)
+CONTEXT: COPY ipl_matches, line 544, column umpire1: "KN Anathapadmanabhan"*/
+
+ALTER TABLE ipl_matches
+ALTER COLUMN umpire1 TYPE varchar(35); --success
+
+--4.Import data from csv file ’IPL_Ball.csv’ attached in resources to the table ‘deliveries’ which was created in Q2
+
+COPY ipl_ball
+FROM 'E:\internshala_sql_project\IPLMatches_IPLBall\IPL_Ball.csv'
+DELIMITER ',' CSV HEADER; 
+-- after getting below error successfully completed the copying
+
+/*got an error: value too long for type character varying(30)
+CONTEXT: COPY ipl_ball, line 3530, column filder: "Joginder Sharma,JDP Oram, MS Dhoni"*/
+
+ALTER TABLE ipl_ball
+ALTER COLUMN fielder TYPE varchar(50); --success
+
+--fetching both tables
+SELECT * FROM ipl_matches; --816 rows
+SELECT * FROM ipl_ball; --1000 of 193468
+
+--5.Select the top 20 rows of the ipl_ball table after ordering them by id, inning, over, ball in ascending order.
+
+SELECT id, inning, over, ball
+FROM ipl_ball
+ORDER BY id ASC, inning asc, over ASC, ball ASC
+LIMIT 20;
+
+--6.Select the top 20 rows of the matches table.
+SELECT * FROM ipl_matches
+WHERE result_margin IS NOT NULL
+LIMIT 20;						
+
+--7. fetch data of all the matches played on 2nd may 2013 from the matches table.
+SELECT * FROM ipl_matches
+WHERE date='2013-05-02';
+
+/*8.Fetch data of all the matches where the result mode is 'runs' and 
+margin of victory is more than 100 runs.*/
+
+SELECT  * FROM ipl_matches
+WHERE result = 'runs' AND result_margin>100
+ORDER BY result_margin DESC; --order it is my own interest
+
+/*9.fetch data of all the matches where the final scores
+of both teams tied and order it in descending order of the date*/
+
+SELECT * FROM ipl_matches
+WHERE result='tie'
+ORDER BY date DESC;
+
+--10.get the count of cities that have hosted an IPL match.
+SELECT COUNT(DISTINCT city) AS city_count_hosted_ipl_matchs
+FROM ipl_matches; --33
+
+/*11. create table deliveries_v02 with all the columns of the table 'deliveries'
+and an additional column 'ball_result' containing values 'boundary', 'dot' or 'other'
+depending on the total_run (boundary for >=4, dot for 0 and other for any other number)
+(Hint 1: CASE WHEN statement is used to get condition based result)
+(Hint 2: To convert the output data of select statement into a table, you can use a subquery.
+create table_name as [entire select statement])*/
+
+CREATE TABLE deliveries_v02 AS
+SELECT *, 
+	CASE
+		WHEN total_runs >= 4 THEN 'boundary'
+		WHEN total_runs = 0 THEN 'dot'
+		ELSE 'other'
+	END AS ball_result
+FROM ipl_ball;			--success
+
+SELECT * FROM deliveries_v02;
+--12.write a query to fetch the total number of boundaries and dot balls from the deliveries_v02
+
+SELECT 
+COUNT(CASE WHEN ball_result='boundary' THEN 1 END) AS total_boundary,
+COUNT(CASE WHEN ball_result='dot' THEN 1 END) AS total_dot
+FROM deliveries_v02; 
+--total_boundary = 31468, total_dot = 67841
+
+/*13.write a query to fetch the total number of  boundaries 
+scored by each team from the deliveries_v02 table and order it in descending order 
+of the no. of boundaries scored.*/
+
+SELECT batting_team,
+COUNT(CASE WHEN ball_result='boundary' THEN 1 END) AS scored_by_team
+FROM deliveries_v02
+GROUP BY batting_team
+ORDER BY scored_by_team desc; --order by is my own interest
+
+/*14. write a query to fetch the total number of dot ball bowled by each
+team and order it in descending order of the total number of dot balls bowled*/
+
+SELECT bowling_team, COUNT(CASE WHEN ball_result = 'dot' THEN 1 END) AS total_dot_balls
+FROM deliveries_v02
+GROUP BY bowling_team
+ORDER BY total_dot_balls DESC;
+
+/*15. write a query to fetch the total number of dismissals by dismissal
+kinds where dismissal kind is not NA*/
+
+SELECT COUNT(CASE WHEN dismissal_kind='NA' THEN 1 END) as total_no_of_dismissals_NA
+FROM deliveries_v02; --183973
+--out of task
+SELECT distinct dismissal_kind, COUNT(
+	case 
+		when dismissal_kind='bowled' then 1
+		when dismissal_kind='caught' then 1
+		when dismissal_kind='caught and bowled' then 1
+		when dismissal_kind='hit wicket' then 1
+		when dismissal_kind='lbw' then 1
+		when dismissal_kind='NA' THEN 1
+		when dismissal_kind='obstructing the field' then 1
+		when dismissal_kind='retired hurt' then 1
+		when dismissal_kind='run out' then 1
+		when dismissal_kind='stumped' then 1
+	end) as count_dismissal
+ FROM deliveries_v02
+ group by dismissal_kind
+ order by count_dismissal desc;
+
+/*16. write a query to get the top 5 bowlers who conceded max. extra
+runs from the ipl_ball table*/
+
+SELECT bowler, extra_runs 
+FROM ipl_ball
+ORDER BY extra_runs DESC
+LIMIT 5;
+
+/*17. write a query to create a table named deliveries_v03 with all
+the columns of deliveries_v02 table and two additional column 
+(name venue and match_date) of venue and date from table matches */
+
+CREATE TABLE deliveries_v03 AS 
+SELECT d.*,
+m.venue,
+m.date
+FROM deliveries_v02 d
+JOIN ipl_matches m
+ON d.id = m.id;
+
+SELECT * from deliveries_v03;
+
+/*18. write a query to fetch the total runs scored for each venue and order
+it in the descending order of total runs scored.*/
+
+SELECT m.venue, SUM(d.total_runs) AS total_runs
+FROM ipl_matches m
+JOIN deliveries_v03 d
+ON m.id = d.id
+WHERE m.venue IN ('Eden Gardens', 'Wankhede Stadium', 'Feroz Shah Kotla', 'M Chinnaswamy Stadium')
+GROUP BY m.venue
+ORDER BY total_runs DESC;
+
+/*19. write a query to fetch the year-wise total runs scored at 
+Eden Gardens and order it in the descending order of total runs scored */
+
+
+SELECT EXTRACT(YEAR FROM m.date) AS date_year, m.venue, SUM(d.total_runs) AS total_runs 
+FROM ipl_matches m
+JOIN deliveries_v03 d
+ON m.id = d.id
+WHERE m.venue = 'Eden Gardens'
+GROUP BY date_year, m.venue
+order by total_runs desc;
+
+/*20. Get Unique team1 names from the matches table, you will notice that there are two
+entries for Rising Pune Supergiant one with Rising Pune Supergiant and another one with 
+Rising Pune Spergiants. Your task is to create a matches_corrected table with two additional
+columns team1_corr and team2_corr containing team names with replacing Rising Pune Supergiants
+with Rising Pune Supergiant. Now analyse these newly created columns.*/
+
+CREATE TABLE matches_corrected AS
+SELECT
+	CASE
+		WHEN team1='Rising Pune Supergiants' THEN 'Rising Pune Supergiant'
+		ELSE team1
+	END AS team1_corr,
+	CASE
+		WHEN team1='Rising Pune Supergiants' THEN 'Rising Pune Supergiant'
+		ELSE team1
+	END AS team2_corr
+FROM ipl_matches; --creation part
+
+SELECT DISTINCT team1_corr,team2_corr FROM matches_corrected; --analyse_part
+
+/*21. Create a new table deliveries_v04 with the first column as ball_id containing
+information of match_id, inning, over and ball separated by '-'
+(for ex. 335982-1-0-1 match_id-inning-over-ball) and rest of the columns same as deliveries_v03*/
+CREATE TABLE deliveries_v04 AS
+SELECT CONCAT(id,'-',inning,'-',over,'-',ball) AS ball_id,*
+FROM deliveries_v03;
+
+select * from deliveries_v04;
+
+/*22.Compare the total count of rows and total count of distinct ball_id
+in deliveries_v04*/
+
+SELECT count(*) AS total_no_of_rows, count(distinct ball_id) as distinct_ball_id_count
+FROM deliveries_v04;
+--total_no_of_rows: 193468, distinct_ball_id_count: 193458
+--total_no_of_rows > distrinct_ball_id_count
+
+/*23. SQL Row_number() function is used to sort and assign row numbers to data rows in the presence
+of multiple groups. for example, to identify the top 10 rows which have nth highest order amount in each
+region, we can use row_number to assign row numbers in each group(region) with any particular order (decreasing order of 
+order amount) and then we can use this new column to apply filters. using this knowledge, solve the following exercise.
+you can use hints to create an additional column of row number.
+Create table deliveries_v05 with all columns of deliveries_v04 and an additional column for row number partition over ball_id.
+Hint: Syntax to add along with other columns, row_number() over(partition by ball_id) as r_num*/
+
+
+
+CREATE TABLE deliveries_v05 AS 
+SELECT ROW_NUMBER() OVER(partition by ball_id ORDER BY ball_id) AS r_num,* FROM deliveries_v04; --success
+
+SELECT * FROM deliveries_v05; --fetching
+
+/*24. Use the r_num created in deliveries_v05 to identify instances where ball_id is repeating.
+(Hint: select * from deliveries_v05 where r_num=2*/
+
+SELECT * FROM deliveries_v05
+WHERE r_num=2; --10 records
+
+/*25. Use Subqueries to fetch data of all the ball_id which are repeating 
+(Hint: SELECT * FROM deliveries_v05 WHERE ball_id in (SELECT ball_id from deliveries_v05 WHERE r_num=2);)*/
+
+SELECT * FROM deliveries_v05 WHERE ball_id in (SELECT ball_id from deliveries_v05 WHERE r_num=2); --20 records
+
+
